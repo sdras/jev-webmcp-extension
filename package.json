@@ -1,0 +1,16 @@
+{
+  "name": "jev-webmcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Chrome side panel that drives any page's WebMCP tools with Jev, TypeSafe's System One model.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "harness": "node harness/serve.js",
+    "eval": "node evals/run.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

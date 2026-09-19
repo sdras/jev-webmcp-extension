@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Jev × WebMCP</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <h1 class="brand">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M9.2 0 2 9.2h4.6L5.8 16 14 6.4H9z" fill="currentColor" /></svg>
+        Jev <span class="times">×</span> WebMCP
+      </h1>
+      <p class="site" id="site"></p>
+      <button type="button" class="icon-button" id="settings-toggle" aria-expanded="false" aria-controls="settings" aria-label="Settings">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1.5 4.5h6m5 0h2m-13 7h2m5 0h6" /><circle cx="10" cy="4.5" r="2" /><circle cx="6" cy="11.5" r="2" /></svg>
+      </button>
+    </header>
+
+    <p class="mock-banner" id="mock-banner" hidden>Harness mode: a scripted mock is standing in for Jev.</p>
+
+    <section class="settings" id="settings" hidden aria-label="Settings">
+      <label for="api-key">TypeSafe API key</label>
+      <div class="row">
+        <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a key from console.typesafe.ai/keys" />
+        <button type="button" id="save-key">Save</button>
+      </div>
+      <p class="hint" id="key-status">Stored in this browser only (chrome.storage.local). Sent only to api.typesafe.ai.</p>
+      <label class="switch"><input type="checkbox" id="live" /> Run read-only tools while I type</label>
+    </section>
+
+    <section class="notice" id="notice" hidden></section>
+
+    <main id="app" hidden>
+      <details class="tools" id="tools">
+        <summary><span id="tools-summary"></span></summary>
+        <ul id="tool-list"></ul>
+      </details>
+
+      <form id="command" autocomplete="off">
+        <label for="say" class="visually-hidden">Tell this page what you want</label>
+        <textarea id="say" rows="2" placeholder="Tell this page what you want…" spellcheck="false"></textarea>
+        <div class="meta">
+          <span class="pill" id="latency" hidden></span>
+          <span id="cost"></span>
+          <button type="button" class="link" id="playground" hidden>Open in playground ↗</button>
+        </div>
+      </form>
+
+      <section id="prediction" aria-live="polite"></section>
+      <section id="log" aria-label="Tool results"></section>
+    </main>
+
+    <script src="../../vendor/lz-string.min.js"></script>
+    <script type="module" src="panel.js"></script>
+  </body>
+</html>

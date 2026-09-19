@@ -1,0 +1,379 @@
+[
+  {
+    "name": "choose_store",
+    "title": "Choose a store",
+    "description": "Open one of Basketful's grocery stores so the shopper can browse and order from it. Each store has its own cart, prices, and delivery fee. Use this first when no store is open, or when the shopper asks to switch stores. Returns the store's delivery fee, order minimum, and departments.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "store": {
+          "type": "string",
+          "enum": [
+            "Greenleaf Market",
+            "Harbor Foods Co-op",
+            "Penny Pantry"
+          ],
+          "description": "Greenleaf Market: everyday groceries, fastest. Harbor Foods Co-op: organic, pricier. Penny Pantry: lowest prices."
+        }
+      },
+      "required": [
+        "store"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "search_products",
+    "title": "Search products",
+    "description": "Search the open store's catalog and show the results on the page. Every filter is optional: combine a text query with a department, dietary needs, or a price cap, or pass only a department to browse an aisle. Search one kind of product per call. Returns up to 8 products with exact name, price, size, and stock status; use those exact names with add_to_cart.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Product words as the shopper said them, e.g. 'corn tortillas' or 'oat milk'."
+        },
+        "department": {
+          "type": "string",
+          "enum": [
+            "Produce",
+            "Dairy & Eggs",
+            "Bakery",
+            "Meat & Seafood",
+            "Pantry",
+            "Frozen",
+            "Beverages",
+            "Snacks",
+            "Household"
+          ],
+          "description": "Limit results to one department (aisle)."
+        },
+        "dietary": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "organic",
+              "vegan",
+              "gluten-free",
+              "dairy-free"
+            ]
+          },
+          "description": "Only return products that meet every listed dietary need."
+        },
+        "max_price": {
+          "type": "number",
+          "description": "Highest price per item in dollars, e.g. 5 for 'under $5'."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "add_to_cart",
+    "title": "Add to cart",
+    "description": "Add one or more products to the open store's cart. Takes a list, so a whole shopping list can go in one call. Quantities add to whatever is already in the cart. Returns what was added, anything that could not be added and why (out of stock, or a name that matches several products), and the new subtotal.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "description": "The products to add.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "product": {
+                "type": "string",
+                "description": "Product name as shown in search_products results, e.g. 'Corn Tortillas'."
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 24,
+                "description": "How many to add. Defaults to 1."
+              }
+            },
+            "required": [
+              "product"
+            ]
+          }
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "update_cart_item",
+    "title": "Update cart item",
+    "description": "Set the exact quantity of a product that is already in the open store's cart, or remove it by setting the quantity to 0. Use this when the shopper changes their mind about an amount; use add_to_cart to put new products in the cart. Returns the new subtotal.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "product": {
+          "type": "string",
+          "description": "Product name as shown in search_products results, e.g. 'Corn Tortillas'."
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24,
+          "description": "The new total quantity for this product. 0 removes it from the cart."
+        }
+      },
+      "required": [
+        "product",
+        "quantity"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "get_cart",
+    "title": "Get cart",
+    "description": "Read the open store's cart: each item with its quantity and price, the subtotal, estimated fees and total, and whether the store's order minimum is met. Use it to review the cart with the shopper before checkout.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "get_staples",
+    "title": "Get staples",
+    "description": "Read the shopper's saved staples (the page calls them 'Your usuals'): the products they buy regularly, each with its usual quantity and what to do when it is out of stock. When a store is open it also shows the price, stock, and how many are already in the cart. Use it to answer what is on the list or to review it before add_staples_to_cart.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "update_staples",
+    "title": "Update staples",
+    "description": "Save products to the shopper's staples list, change their usual quantity or their out-of-stock rule, or remove them. Staples are remembered on this site across visits and apply to every store. Takes a list, so a whole staples list can be saved in one call. This edits the saved list only; use add_staples_to_cart to put staples in the cart.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "description": "The staples to save, change, or remove.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "product": {
+                "type": "string",
+                "description": "Product name as shown in search_products results, e.g. 'Corn Tortillas'."
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 24,
+                "description": "Usual quantity per order. 0 removes the product from the list. Defaults to 1."
+              },
+              "if_out_of_stock": {
+                "type": "string",
+                "description": "When this staple is out of stock: a product name to swap in, 'skip' to leave it out, or 'ask' to be asked each time."
+              }
+            },
+            "required": [
+              "product"
+            ]
+          }
+        },
+        "replace_list": {
+          "type": "boolean",
+          "description": "true makes these items the entire list, dropping any others. false (default) merges them in."
+        }
+      },
+      "required": [
+        "items"
+      ]
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "add_staples_to_cart",
+    "title": "Add staples to cart",
+    "description": "Put the shopper's saved staples in the open store's cart. Use it when they ask for their staples, 'the usual', or their regular order. It tops the cart up to each staple's usual quantity, so nothing already in the cart is doubled and it is safe to call again. A staple that is out of stock follows its saved rule (swap or skip); one with no rule is reported with close matches so you can ask the shopper.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "skip": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Staples to leave out this time, by product name, e.g. ['Large Eggs'] for 'skip the eggs'."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "add_recipe_to_cart",
+    "title": "Add a recipe to the cart",
+    "description": "Add what a recipe needs to the open store's cart, skipping what the shopper already has. Use `recipe` for one of Basketful's recipes, or `ingredients` for a recipe from anywhere. It checks the cart and their order history: what's in the cart or still in the cupboard is skipped, perishables bought too long ago are added again, and recent purchases come back as questions. Tell the shopper what it assumed. Call again with already_have or need to correct it; it never doubles items.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "recipe": {
+          "type": "string",
+          "enum": [
+            "Simple Tomato Pasta",
+            "Weeknight Beef Tacos",
+            "Guacamole & Chips",
+            "Sheet-Pan Salmon & Broccoli",
+            "Cheddar & Spinach Scramble"
+          ],
+          "description": "One of Basketful's own recipes."
+        },
+        "ingredients": {
+          "type": "array",
+          "description": "For a recipe from anywhere else: every ingredient it calls for.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "The ingredient as the recipe writes it, e.g. '2 large tomatoes, diced' or 'olive oil'."
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12,
+                "description": "How many of the store's unit to buy, when it's clear (3 avocados). Leave out otherwise."
+              }
+            },
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "recipe_name": {
+          "type": "string",
+          "description": "What to call a recipe passed as ingredients, e.g. 'Grandma's salsa'."
+        },
+        "already_have": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ingredients the shopper says they have. They are left out (or taken back out) and remembered."
+        },
+        "need": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ingredients the shopper says they are out of. They are added even if history suggests otherwise."
+        },
+        "preview": {
+          "type": "boolean",
+          "description": "true returns the plan without changing the cart, for 'what would I need to buy?'."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "start_checkout",
+    "title": "Start checkout",
+    "description": "Go to the checkout page for the open store's cart. This begins checkout and buys nothing yet. Returns the available delivery windows, the saved delivery address if there is one, and what is still needed before the order can be placed. The checkout tools (set_delivery_address, set_delivery_options, place_order) become available after this call.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "get_order_status",
+    "title": "Get order status",
+    "description": "Check on an order that was already placed: its stage (order placed, shopping, out for delivery, or delivered), delivery window, shopper, items, and total. Also opens that order's tracking page. With no order number it returns the most recent order.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "order_number": {
+          "type": "string",
+          "description": "Order number such as 'BF-1001'. Leave out for the most recent order."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": true
+    }
+  },
+  {
+    "name": "set_delivery_options",
+    "title": "Set delivery options",
+    "description": "On the checkout page, choose the delivery window, the tip, and what the shopper should do when an item is out of stock. Send only the options being changed. Returns the updated order total.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "delivery_window": {
+          "type": "string",
+          "enum": [
+            "Priority: within 1 hour",
+            "Today 5pm–7pm",
+            "Today 7pm–9pm",
+            "Tomorrow 9am–11am"
+          ],
+          "description": "When the order should arrive. Priority costs $2 extra; every other window is free."
+        },
+        "tip": {
+          "type": "string",
+          "description": "Tip as the shopper said it: '$5', '15%', or 'none'. The whole tip goes to the person shopping."
+        },
+        "replacements": {
+          "type": "string",
+          "enum": [
+            "Best match",
+            "Contact me",
+            "Refund item"
+          ],
+          "description": "What to do when an item is out of stock at the store."
+        }
+      }
+    },
+    "annotations": {
+      "readOnlyHint": false
+    }
+  },
+  {
+    "name": "place_order",
+    "title": "Place order",
+    "description": "Place the order on the checkout page and charge the shopper's saved payment method. This is a real purchase, so review the items, delivery window, address, and total with the shopper and get their go-ahead first. Returns the order number and delivery estimate.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "consequentialHint": true
+    }
+  }
+]
