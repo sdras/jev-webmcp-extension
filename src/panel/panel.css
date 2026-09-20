@@ -401,12 +401,43 @@ button {
   list-style: none;
 }
 
-.routes li,
+.route,
 .arg {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 64px 34px;
   align-items: center;
   gap: 8px;
+}
+
+/* A candidate tool is a button. It bleeds into the gutter so the columns stay put. */
+button.route {
+  width: calc(100% + 12px);
+  margin: -2px -6px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  text-align: left;
+}
+
+button.route:hover {
+  background: var(--surface);
+}
+
+.pinned button.route {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.route-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.route-name .badge {
+  flex: none;
+  color: var(--accent);
 }
 
 .routes code {

@@ -60,15 +60,22 @@ function decodeParam(param, answers) {
  * @returns {{ tool, name, args, details, missing, confidence, routes } | { name: null, routes, confidence }}
  * `confidence` is the least certain judgement behind the call: one wrong
  * argument spoils the result, so a product would punish long signatures.
+ *
+ * `pick` is a tool the user chose over Jev's route. Every tool's arguments
+ * were answered in the same request, so the call is ready without asking again.
  */
-export function decode(plan, answers) {
+export function decode(plan, answers, { pick } = {}) {
   const route = answers[ROUTE];
-  const routes = topOf(route?.probabilities).map((r) => ({ ...r, value: r.value === NONE ? null : r.value }));
-  const routeProbability = route?.probabilities?.[route.choice] ?? 0;
-  if (!route || route.choice === NONE || !plan.tools[route.choice])
+  const picked = Boolean(plan.tools[pick]);
+  const choice = picked ? pick : route?.choice;
+  const routes = topOf(route?.probabilities, Infinity)
+    .filter((r, i) => i < 3 || r.value === choice)
+    .map((r) => ({ ...r, value: r.value === NONE ? null : r.value }));
+  const routeProbability = route?.probabilities?.[choice] ?? 0;
+  if (!choice || choice === NONE || !plan.tools[choice])
     return { name: null, tool: null, args: {}, details: [], missing: [], routes, confidence: routeProbability };
 
-  const { tool, params } = plan.tools[route.choice];
+  const { tool, params } = plan.tools[choice];
   let details = params.map((param) => decodeParam(param, answers));
 
   // An optional object or list item goes in whole or not at all.
@@ -78,8 +85,9 @@ export function decode(plan, answers) {
   const args = {};
   for (const d of details) if (!d.omitted && !d.missing) setPath(args, d.path, d.value);
   const missing = details.filter((d) => d.missing).map((d) => d.label);
-  const confidence = Math.min(routeProbability, ...details.map((d) => d.probability));
-  return { name: tool.name, tool, args, details, missing, routes, routeProbability, confidence };
+  // The user's pick settles the route, so only the arguments are left in doubt.
+  const confidence = Math.min(picked ? 1 : routeProbability, ...details.map((d) => d.probability));
+  return { name: tool.name, tool, args, details, missing, routes, routeProbability, confidence, picked };
 }
 
 /** `search_products({ department: "Bakery", dietary: ["gluten-free"] })` */

@@ -21,8 +21,9 @@ const model = {
   toolsKey: "",
   flagged: {}, // tool name -> probability its manifest is steering the agent
   settings: {},
-  request: null, // { state, questions } behind the current prediction
+  request: null, // { state, questions, plan, answers } behind the current prediction
   call: null,
+  pick: null, // a candidate tool the user chose over Jev's route; holds until the sentence is cleared
   overrides: {}, // values the user typed for arguments Jev could not fill
   armed: false,
   lastAuto: "",
@@ -155,7 +156,7 @@ async function predict() {
   const said = ui.say.value.trim();
   model.armed = false;
   if (said.length < MIN_CHARS || !model.tools.length) {
-    model.call = model.request = null;
+    model.call = model.request = model.pick = null;
     model.overrides = {};
     ui.latency.hidden = ui.playground.hidden = true;
     ui.cost.textContent = "";
@@ -170,15 +171,12 @@ async function predict() {
   try {
     const { answers, usage, ms } = await platform.jev({ state, questions, signal: controller.signal });
     if (controller.signal.aborted) return;
-    model.request = { state, questions };
-    model.call = decode(plan, answers);
-    model.overrides = {};
+    model.request = { state, questions, plan, answers };
     ui.latency.hidden = ui.playground.hidden = false;
     ui.latency.textContent = `${Math.round(ms)} ms`;
     ui.cost.textContent = `${usage.input_tokens.toLocaleString()} tokens · $${(usage.input_tokens * PRICE_PER_TOKEN).toFixed(5)}`;
     renderTools(questions);
-    renderPrediction();
-    if (decision() === "auto") run({ auto: true });
+    settle();
   } catch (error) {
     if (error.name === "AbortError") return;
     if (error.status === 401) openSettings(error.message);
@@ -186,6 +184,43 @@ async function predict() {
   } finally {
     if (inflight === controller) ui.prediction.classList.remove("pending");
   }
+}
+
+// Answers -> the call on screen. Jev answered for every tool at once, so
+// switching to another candidate is a re-decode, not another request.
+function settle({ live = true } = {}) {
+  const { plan, answers } = model.request;
+  model.call = decode(plan, answers, { pick: model.pick });
+  if (!model.call.picked) model.pick = null; // the picked tool left the page
+  model.overrides = {};
+  renderPrediction();
+  if (live && decision() === "auto") run({ auto: true });
+}
+
+function choose(name, options) {
+  model.pick = name;
+  model.armed = false;
+  settle(options);
+}
+
+// A click on a candidate is "this one, go": choose it, then what Enter would do.
+// So a consequential tool still takes a second click, and a blank still gets filled in.
+function runCandidate(name) {
+  if (model.pick !== name) choose(name, { live: false });
+  ui.say.focus();
+  submit();
+}
+
+// ArrowDown from the end of the sentence walks the candidates; ArrowUp walks
+// back, and at the top the route is Jev's again.
+function stepPick(step) {
+  if (!model.call) return false;
+  const names = model.call.routes.map((route) => route.value).filter(Boolean);
+  const at = names.indexOf(model.call.name) + step;
+  if (at >= names.length || (at < 0 && !model.pick)) return false;
+  const name = names[at] ?? null;
+  choose(name === model.call.routes[0]?.value ? null : name);
+  return true;
 }
 
 // Arguments Jev could not fill are typed in by the user; then the call is whole.
@@ -246,10 +281,18 @@ function renderPrediction() {
   const call = model.call;
   if (!call) return ui.prediction.replaceChildren(h("p", { class: "empty" }, "Start typing. Jev reads this page's tools and answers before you finish the sentence."));
 
+  // Each candidate tool is a button that runs it: the user can overrule the route.
+  // A double-click's second half (detail 2) is not a confirmation.
   const routes = h(
     "ol",
     { class: "routes" },
-    call.routes.map((route) => h("li", { class: route.value === call.name ? "picked" : "" }, h("code", {}, route.value ?? "no tool fits"), bar(route.probability), h("span", { class: "pct" }, percent(route.probability)))),
+    call.routes.map((route) => {
+      const current = route.value === call.name;
+      const pinned = current && call.picked;
+      const cells = [h("span", { class: "route-name" }, h("code", {}, route.value ?? "no tool fits"), pinned && h("span", { class: "badge" }, "your pick")), bar(route.probability), h("span", { class: "pct" }, percent(route.probability))];
+      const row = route.value ? h("button", { type: "button", class: "route", title: `Run ${route.value}`, onclick: (event) => event.detail < 2 && runCandidate(route.value) }, cells) : h("span", { class: "route" }, cells);
+      return h("li", { class: `${current ? "picked" : ""} ${pinned ? "pinned" : ""}`, "aria-current": current && "true" }, row);
+    }),
   );
   if (!call.name) return ui.prediction.replaceChildren(routes, h("p", { class: "status none", id: "status" }, "Nothing on this page does that. That's a job for a slower, smarter model, or for you."));
 
@@ -266,13 +309,14 @@ function renderStatus() {
   const call = finalCall();
   const verdict = decision();
   const sure = percent(call.confidence);
+  const lead = call.picked ? "Your pick" : `${sure} sure`;
   const hints = call.tool.annotations ?? {};
   const text = {
-    auto: `${sure} sure and read-only, so it runs as you type.`,
-    ready: `${sure} sure. Press Enter to run.`,
-    confirm: model.armed ? `Press Enter again to run ${call.name}.` : hints.consequentialHint || hints.destructiveHint ? "This tool is marked consequential. Press Enter, then confirm." : model.flagged[call.name] >= 0.5 ? "This tool's description looks like it is steering the agent. Press Enter, then confirm." : `Only ${sure} sure. Press Enter, then confirm.`,
+    auto: `${lead} and read-only, so it runs as you type.`,
+    ready: `${lead}. Press Enter to run.`,
+    confirm: model.armed ? `Press Enter or click ${call.name} again to run it.` : hints.consequentialHint || hints.destructiveHint ? "This tool is marked consequential. Press Enter, then confirm." : model.flagged[call.name] >= 0.5 ? "This tool's description looks like it is steering the agent. Press Enter, then confirm." : `Only ${sure} sure${call.picked ? " of the arguments" : ""}. Press Enter, then confirm.`,
     incomplete: `Fill in ${call.missing.join(", ")}, then press Enter.`,
-    none: "No tool is a confident match yet. Keep typing.",
+    none: "No tool is a confident match yet. Keep typing, or click the one you mean.",
   }[verdict];
   status.className = `status ${verdict}${model.armed ? " armed" : ""}`;
   status.replaceChildren(h("span", { class: "dot" }), text);
@@ -388,6 +432,9 @@ ui.say.addEventListener("input", dispatch);
 ui.say.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) (event.preventDefault(), submit());
   if (event.key === "Escape") ((ui.say.value = ""), predict());
+  // At the end of the sentence ArrowDown has nowhere to go, so it moves through the candidates.
+  if (event.key === "ArrowDown" && ui.say.selectionStart === ui.say.value.length && stepPick(1)) event.preventDefault();
+  if (event.key === "ArrowUp" && stepPick(-1)) event.preventDefault();
 });
 ui.command.addEventListener("submit", (event) => (event.preventDefault(), submit()));
 ui["settings-toggle"].addEventListener("click", () => {

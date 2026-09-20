@@ -14,7 +14,8 @@ export const DEFAULTS = { route: 0.5, auto: 0.8, confirm: 0.6 };
  *   confirm     Enter asks first (shaky, flagged, or consequential)
  */
 export function decide(call, { live = true, flagged = false, thresholds = DEFAULTS } = {}) {
-  if (!call?.name || call.routeProbability < thresholds.route) return "none";
+  // A tool the user picked needs no route confidence; the rest still applies.
+  if (!call?.name || (!call.picked && call.routeProbability < thresholds.route)) return "none";
   if (call.missing.length) return "incomplete";
   const hints = call.tool.annotations ?? {};
   if (flagged || hints.consequentialHint || hints.destructiveHint) return "confirm";

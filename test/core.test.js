@@ -122,6 +122,27 @@ test("decode: no tool fits", () => {
   assert.equal(decide(call), "none");
 });
 
+test("decode: the user's pick overrules the route without asking again", () => {
+  const { questions, plan } = buildQuestions(basketful, "throw in two cartons of oat milk");
+  const answers = answersFor(questions, {
+    tool: "search_products",
+    p: 0.9,
+    answers: { "add_to_cart::items[0].product": ["oat milk", 0.93], "add_to_cart::items[0].quantity": ["2", 0.96], "add_to_cart::items[0].quantity?": 0.95 },
+  });
+  assert.equal(decode(plan, answers).name, "search_products");
+
+  const call = decode(plan, answers, { pick: "add_to_cart" });
+  assert.equal(call.name, "add_to_cart");
+  assert.deepEqual(call.args, { items: [{ product: "oat milk", quantity: 2 }] });
+  assert.ok(call.routeProbability < 0.5, "Jev's own odds are still reported");
+  assert.ok(Math.abs(call.confidence - 0.93) < 1e-9, "only the arguments are left in doubt");
+  assert.ok(call.routes.some((r) => r.value === "add_to_cart"), "the pick stays listed even outside the top three");
+  assert.equal(decide(call), "ready", "a picked tool is not vetoed by its route probability");
+
+  assert.equal(decide(decode(plan, answers, { pick: "place_order" })), "confirm", "picking does not skip the consequential check");
+  assert.equal(decode(plan, answers, { pick: "gone_tool" }).name, "search_products", "a pick that left the page falls back to Jev");
+});
+
 test("policy: read-only runs live, everything else waits for a human", () => {
   const make = (name, confidence, extra = {}) => ({ name, tool: tool(name), missing: [], confidence, routeProbability: 0.99, ...extra });
   assert.equal(decide(make("search_products", 0.9)), "auto");
