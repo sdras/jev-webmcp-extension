@@ -8,7 +8,7 @@ A Chrome extension that uses **Jev**, TypeSafe's System One model, to select and
 search_products({ department: "Bakery", dietary: ["gluten-free"] })     98%   164 ms
 ```
 
-![Jev side panel predicting an add_to_cart call alongside the Basketful grocery demo](https://raw.githubusercontent.com/sdras/jev-webmcp-extension/main/icons/screenshot.jpg)
+![Jev side panel predicting an add_to_cart call alongside the Basketful grocery demo](icons/screenshot.jpg)
 
 ## How schema conversion works
 
