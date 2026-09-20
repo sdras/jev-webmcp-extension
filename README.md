@@ -8,6 +8,8 @@ A Chrome extension that uses **Jev**, TypeSafe's System One model, to select and
 search_products({ department: "Bakery", dietary: ["gluten-free"] })     98%   164 ms
 ```
 
+![Jev side panel predicting an add_to_cart call alongside the Basketful grocery demo](https://raw.githubusercontent.com/sdras/jev-webmcp-extension/main/icons/screenshot.jpg)
+
 ## How schema conversion works
 
 WebMCP exposes named tools with descriptions, parameter schemas, enums, and annotations. Jev accepts state and typed questions (Choice, Score, Noul) and returns typed answers with probabilities. It answers the questions in parallel and does not generate text.
