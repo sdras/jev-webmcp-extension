@@ -1,8 +1,6 @@
 # Jev × WebMCP Chrome Extension
 
-A Chrome side panel that drives **any page's WebMCP tools** with **Jev**, TypeSafe's System One model.
-
-Type, and on every keystroke, Jev picks the page's tool and fills its arguments, and the predicted call renders live with a probability.
+A Chrome extension that uses **Jev**, TypeSafe's System One model, to select and populate **WebMCP tool calls** from user input. The side panel discovers tools exposed by the current page and displays predicted calls, confidence scores, and latency as the user types. Tool selection is derived from the page's schemas, without site-specific configuration.
 
 ```
 "got anything gluten free in the bakery aisle?"
@@ -10,13 +8,11 @@ Type, and on every keystroke, Jev picks the page's tool and fills its arguments,
 search_products({ department: "Bakery", dietary: ["gluten-free"] })     98%   164 ms
 ```
 
-No per-site setup.
+## How schema conversion works
 
-## Why these two fit
+WebMCP exposes named tools with descriptions, parameter schemas, enums, and annotations. Jev accepts state and typed questions (Choice, Score, Noul) and returns typed answers with probabilities. It answers the questions in parallel and does not generate text.
 
-WebMCP gives a page a typed surface: named tools, described parameters, enums, annotations. Jev is a model that does not generate text. You send it state plus typed questions (Choice, Score, Noul) and get typed answers with calibrated probabilities back in a couple hundred milliseconds, all questions answered in parallel.
-
-So the panel reads the page's tools and turns each schema into questions:
+The panel converts tool schemas into questions as follows:
 
 | In the tool's schema | Becomes |
 | --- | --- |
@@ -29,7 +25,6 @@ So the panel reads the page's tools and turns each schema into questions:
 | other numbers | Choice over the numbers the user stated (parsed in code) |
 | anything optional | an extra "is it stated?" Noul, so the tool's default stands when it isn't |
 
-
 ## Set it up
 
 1. Chrome 149 or newer with WebMCP available (a site in the origin trial, or `chrome://flags/#enable-webmcp-testing`).
@@ -40,28 +35,28 @@ So the panel reads the page's tools and turns each schema into questions:
 
 There is no build step. Edit a file, press the reload arrow on `chrome://extensions`, reopen the panel.
 
-## A demo script
+## Demo walkthrough
 
 Using [Basketful](https://github.com/sdras/shopping-cart-webmcp) (`npm run dev`):
 
-1. **The schema is the spec.** Open the panel. "11 tools → 40-odd questions from their schemas." Expand a tool to show its description and how many questions it became. Nothing was written for this site.
-2. **Speed you can see.** Type slowly: `got anything gluten free in the bakery aisle?` The route bars settle on `search_products` mid-sentence, the arguments fill in, and because the tool is `readOnlyHint` the page filters itself while you are still typing. Point at the latency pill.
-3. **Calibrated doubt.** Type something vague (`the cheap one`). Watch a runner-up appear under an argument and the status drop from green to amber.
-4. **You can overrule it.** The candidate tools are buttons. Click one and it runs, with the arguments already filled in: every tool's arguments were answered in the same request, so there is nothing to ask again. From the keyboard, ↓ at the end of the sentence walks the candidates and Enter runs the one you land on; your pick holds while you keep typing, and ↑ back to the top makes the route Jev's again.
-5. **It knows what it can't do.** `make it three of those instead`: the quantity fills, the product is a blank with a dashed border. Jev can't write, so you do.
-6. **Annotations are policy.** `add two oat milks` waits for Enter because it changes state. At checkout, `ok buy it` reaches `place_order`, which is marked consequential: Enter, then Enter again, whatever the confidence.
-7. **Nothing fits.** `tell me a joke` → "no tool fits". That is the hand-off point to a System Two model.
-8. **Show your work.** "Open in playground" loads the exact state and questions into the TypeSafe playground.
+1. **Tool discovery.** Open the panel to view the discovered tools and the questions generated from their schemas. Expand a tool to inspect its description and question count.
+2. **Predictions while typing.** Enter `got anything gluten free in the bakery aisle?` to see the predicted tool, arguments, and latency update. Confident calls to `search_products` can run automatically because the tool has a `readOnlyHint` annotation.
+3. **Ambiguous input.** Enter `the cheap one` to inspect alternative argument predictions and changes in confidence.
+4. **Manual tool selection.** Click a candidate tool to select it for execution. Arguments for all candidate tools are predicted in the same request. From the keyboard, press ↓ at the end of the input to move through candidates and Enter to run the selected tool, subject to confirmation requirements. The selection persists while typing; press ↑ back to the top to return to automatic tool selection.
+5. **Missing arguments.** Enter `make it three of those instead`. The quantity can be resolved, but the product field remains blank for manual entry when the model cannot identify it.
+6. **Execution and confirmation.** Enter `add two oat milks`. Calls that change state require Enter. At checkout, `ok buy it` selects `place_order`, whose consequential annotation requires a second Enter regardless of confidence.
+7. **Unmatched requests.** Enter `tell me a joke` to see the “no tool fits” result. Such requests could be handled by a separate System Two model.
+8. **Inspecting requests in the playground.** Select “Open in playground” to load the request's state and questions into the TypeSafe playground.
 
 ## Safety model
 
 Follows Chrome's [agent security guidance for WebMCP](https://developer.chrome.com/docs/agents/security).
 
-- **Per-site access.** `optional_host_permissions`, requested from the panel when you enable a site. Nothing runs anywhere you have not enabled.
-- **Human in the loop.** A tool is assumed to change state unless it says `readOnlyHint`. Only confident, read-only calls run on their own (and that can be switched off). Consequential or destructive hints always take a second Enter. Clicking a candidate settles which tool, and nothing else: shaky arguments, flagged manifests and consequential hints still ask for a second click, and the second half of a double-click does not count as one.
-- **Manifests are untrusted.** When tools load, one Jev request asks a Noul per tool: is this description describing the tool, or giving orders to an agent? Flagged tools get a badge and never auto-run.
-- **Tool output never reaches the model.** Results are shown to you and that is all, so a poisoned result has nothing to inject into. The model cannot generate text either: the worst a hostile page can do is win a multiple-choice question, and then you still have to press Enter.
-- **No HTML from the page.** Tool names, descriptions and results only ever reach the panel as text nodes.
+- **Per-site access.** The panel requests `optional_host_permissions` when you enable a site. The extension accesses only enabled sites.
+- **Execution controls.** Tools are treated as state-changing unless they declare `readOnlyHint`. Only confident, read-only calls can run automatically, and automatic execution can be disabled. Consequential or destructive annotations always require a second Enter. Clicking a candidate selects the tool; low-confidence arguments, flagged manifests, and consequential annotations still require confirmation with a second click. The second click of a double-click does not count as confirmation.
+- **Manifest screening.** When tools load, Jev evaluates each tool description for instructions directed at an agent. Flagged tools receive a badge and cannot run automatically.
+- **Model input boundary.** Tool results are displayed in the panel and are not included in model requests. Page-provided tool descriptions and schemas remain untrusted inputs and may influence tool selection or arguments. Manifest screening and execution confirmation provide additional checks.
+- **Text rendering.** Tool names, descriptions, and results are rendered as text nodes, rather than HTML.
 
 ## Working on it
 
@@ -84,11 +79,11 @@ src/panel/       the side panel
 evals/run.js     sentences -> expected calls, against the real model
 ```
 
-The page bridge (`pageListTools` / `pageCallTool` in `src/platform/chrome.js`) runs in the page's main world through `chrome.scripting`. Two things it handles that are easy to miss: Chrome returns `inputSchema` as a JSON **string**, and `executeTool` wants the `RegisteredTool` object plus arguments as a JSON string.
+The page bridge (`pageListTools` / `pageCallTool` in `src/platform/chrome.js`) runs in the page's main world through `chrome.scripting`. The bridge handles two API requirements: Chrome returns `inputSchema` as a JSON **string**, and `executeTool` wants the `RegisteredTool` object plus arguments as a JSON string.
 
-## Known edges
+## Limitations
 
-- A sentence fills one item. `items: [...]` and other lists get their first element only.
-- Tuning lives in the question wording in `src/core/questions.js`. Jev reads literally so when an eval fails, usually a cleaner sentence will help.
+- Array arguments, including `items: [...]`, currently populate only the first element.
+- Prediction quality depends on the question wording in `src/core/questions.js`. Evaluation failures may require changes to these questions.
 
 Licensed under [Apache 2.0](LICENSE). The vendored `vendor/lz-string.min.js` is third-party and stays under its own MIT license (`vendor/lz-string.LICENSE`).
