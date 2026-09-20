@@ -39,7 +39,7 @@ There is no build step. Edit a file, press the reload arrow on `chrome://extensi
 
 ## Demo walkthrough
 
-Using [Basketful](https://github.com/sdras/shopping-cart-webmcp) (`npm run dev`):
+Open the [Basketful live demo](https://shopping-webmcp-demo.netlify.app/), or run the [shopping cart demo repository](https://github.com/sdras/shopping-cart-webmcp) locally with `npm run dev`, then follow these steps:
 
 1. **Tool discovery.** Open the panel to view the discovered tools and the questions generated from their schemas. Expand a tool to inspect its description and question count.
 2. **Predictions while typing.** Enter `got anything gluten free in the bakery aisle?` to see the predicted tool, arguments, and latency update. Confident calls to `search_products` can run automatically because the tool has a `readOnlyHint` annotation.
